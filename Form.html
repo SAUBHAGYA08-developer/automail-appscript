@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      :root {
+        --bg-app: #f8fafc;
+        --surface: #ffffff;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --border: #e2e8f0;
+        
+        --tag-sent-bg: #dcfce7;
+        --tag-sent-text: #166534;
+        --tag-pending-bg: #fef9c3;
+        --tag-pending-text: #854d0e;
+        --tag-failed-bg: #fee2e2;
+        --tag-failed-text: #991b1b;
+      }
+
+      body { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
+        margin: 0; 
+        padding: 0; 
+        background-color: var(--bg-app); 
+        color: var(--text-main);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .app-container {
+        max-width: 1000px;
+        margin: 40px auto;
+        padding: 0 20px;
+      }
+
+      .app-header {
+        margin-bottom: 32px;
+      }
+      .app-title {
+        font-size: 24px;
+        font-weight: 700;
+        margin: 0 0 20px 0;
+        letter-spacing: -0.5px;
+      }
+      .tabs { 
+        display: flex; 
+        gap: 8px;
+        border-bottom: 1px solid var(--border); 
+        padding-bottom: 8px;
+        overflow-x: auto;
+      }
+      .tab-btn { 
+        padding: 8px 16px; 
+        border: none; 
+        background: none; 
+        font-size: 14px; 
+        font-weight: 500; 
+        cursor: pointer; 
+        color: var(--text-muted); 
+        border-radius: 6px;
+        white-space: nowrap;
+        transition: all 0.2s ease;
+      }
+      .tab-btn:hover {
+        background-color: #f1f5f9;
+        color: var(--text-main);
+      }
+      .tab-btn.active { 
+        color: var(--primary); 
+        background-color: #eff6ff;
+        font-weight: 600;
+      }
+
+      .tab-content { 
+        display: none; 
+        animation: fadeIn 0.3s ease;
+      }
+      .tab-content.active { 
+        display: block; 
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .workspace-layout {
+        display: grid;
+        grid-template-columns: 380px 1fr;
+        gap: 24px;
+        align-items: start;
+      }
+
+      @media (max-width: 768px) {
+        .workspace-layout { grid-template-columns: 1fr; }
+      }
+
+      .card { 
+        background: var(--surface); 
+        padding: 24px; 
+        border-radius: 12px; 
+        border: 1px solid var(--border);
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        margin-bottom: 24px;
+      }
+      
+      .card-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0 0 20px 0;
+      }
+
+      .form-group {
+        margin-bottom: 16px;
+      }
+      label { 
+        display: block; 
+        margin-bottom: 6px; 
+        font-weight: 500; 
+        font-size: 13px; 
+        color: var(--text-muted);
+      }
+      input[type="text"], input[type="email"], select, textarea { 
+        width: 100%; 
+        padding: 10px 12px; 
+        box-sizing: border-box; 
+        border: 1px solid var(--border); 
+        border-radius: 8px; 
+        font-size: 14px; 
+        transition: all 0.2s;
+        background-color: #fff;
+        font-family: inherit;
+      }
+      input:focus, select:focus, textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      }
+      
+      button.btn { 
+        width: 100%; 
+        padding: 11px; 
+        background-color: var(--primary); 
+        color: white; 
+        border: none; 
+        border-radius: 8px; 
+        font-size: 14px; 
+        font-weight: 600; 
+        cursor: pointer; 
+        transition: background-color 0.2s;
+      }
+      button.btn:hover { background-color: var(--primary-hover); }
+
+      .stats-grid { 
+        display: grid; 
+        grid-template-columns: repeat(4, 1fr); 
+        gap: 16px; 
+      }
+      @media (max-width: 640px) {
+        .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      }
+      .stat-card { 
+        background: var(--surface); 
+        padding: 20px; 
+        border-radius: 12px; 
+        border: 1px solid var(--border);
+      }
+      .stat-label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+      .stat-num { font-size: 28px; font-weight: 700; margin-top: 4px; letter-spacing: -1px; }
+
+      .header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .btn-refresh {
+        background: none;
+        border: 1px solid var(--border);
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+        font-weight: 500;
+        background-color: #fff;
+      }
+      .btn-refresh:hover { background-color: #f8fafc; }
+
+      .status-row { 
+        padding: 14px 0; 
+        border-bottom: 1px solid var(--border); 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+      }
+      .status-row:last-child { border-bottom: none; }
+      .recruiter-meta strong { font-size: 14px; font-weight: 600; }
+      .recruiter-meta div { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+      
+      .status-tag { 
+        padding: 4px 10px; 
+        border-radius: 9999px; 
+        font-weight: 600; 
+        font-size: 11px; 
+      }
+      .SENT { background-color: var(--tag-sent-bg); color: var(--tag-sent-text); }
+      .PENDING { background-color: var(--tag-pending-bg); color: var(--tag-pending-text); }
+      .FAILED { background-color: var(--tag-failed-bg); color: var(--tag-failed-text); }
+
+      .template-block {
+        padding: 16px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-bottom: 16px;
+        background-color: #fafafa;
+      }
+      .template-block:last-child { margin-bottom: 0; }
+      .template-meta {
+        display: flex;
+        justify-content: space-between;
+        font-weight: 600;
+        font-size: 14px;
+        margin-bottom: 8px;
+        color: var(--text-main);
+      }
+      .template-body {
+        font-size: 13px;
+        color: var(--text-muted);
+        white-space: pre-wrap;
+      }
+      
+      .placeholder-pill-box {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 6px;
+      }
+      .placeholder-pill {
+        background-color: #f1f5f9;
+        color: #475569;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-family: monospace;
+        font-weight: 600;
+      }
+      
+      #message, #templateMessage, #settingsMessage { 
+        margin-top: 12px; 
+        font-size: 13px; 
+        text-align: center; 
+        font-weight: 500;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-container">
+      
+      <div class="app-header">
+        <h2 class="app-title">Outreach Dashboard</h2>
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab(event, 'recruits-tab')">Overview & Add</button>
+          <button class="tab-btn" onclick="switchTab(event, 'templates-tab')">Email Templates</button>
+          <button class="tab-btn" onclick="switchTab(event, 'settings-tab')">Configurations</button>
+          <button class="tab-btn" onclick="switchTab(event, 'dashboard-tab')">Analytics</button>
+        </div>
+      </div>
+
+      <!-- TAB 1: ENTRY & TRACKER FEED -->
+      <div id="recruits-tab" class="tab-content active">
+        <div class="workspace-layout">
+          <div class="card">
+            <h3 class="card-title">Quick Recruiter Add</h3>
+            <form id="recruiterForm">
+              <div class="form-group">
+                <label>Recruiter Name</label>
+                <input type="text" id="recruiter" placeholder="John Doe">
+              </div>
+              <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="email" required placeholder="name@company.com">
+              </div>
+              <div class="form-group">
+                <label>Company</label>
+                <input type="text" id="company" required placeholder="Google">
+              </div>
+              <div class="form-group">
+                <label>Position</label>
+                <input type="text" id="position" required placeholder="Software Engineer">
+              </div>
+              <button type="button" class="btn" onclick="submitForm()">Add to Queue</button>
+            </form>
+            <div id="message"></div>
+          </div>
+
+          <div class="card">
+            <div class="header-actions">
+              <h3 class="card-title" style="margin:0;">Recent Activity Feed</h3>
+              <button type="button" class="btn-refresh" onclick="loadRecruitsData()">Sync Now</button>
+            </div>
+            <div id="logList">Loading queue details...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: TEMPLATES ENGINE VIEW -->
+      <div id="templates-tab" class="tab-content">
+        <div class="workspace-layout">
+          <!-- Left side: Form to Add New Template -->
+          <div class="card">
+            <h3 class="card-title">Create New Template</h3>
+            <form id="templateForm">
+              <div class="form-group">
+                <label>Template Name</label>
+                <input type="text" id="tempName" required placeholder="e.g., Template 1 (Cold Reach)">
+              </div>
+              <div class="form-group">
+                <label>Email Subject</label>
+                <input type="text" id="tempSubject" required placeholder="e.g., Application for {{Position}} role">
+              </div>
+              <div class="form-group">
+                <label>Email Body</label>
+                <textarea id="tempBody" rows="8" required placeholder="Hi {{Recruiter}},\n\nI noticed you are hiring..."></textarea>
+              </div>
+              <div class="form-group">
+                <label style="margin-bottom: 2px;">Available Live Placeholders</label>
+                <span style="font-size: 11px; color: var(--text-muted);">Dynamic structural triggers configuration tags:</span>
+                <div class="placeholder-pill-box" id="templatePlaceholdersBox">
+                  <span class="placeholder-pill">{{Recruiter}}</span>
+                  <span class="placeholder-pill">{{Company}}</span>
+                  <span class="placeholder-pill">{{Position}}</span>
+                  <!-- Settings variables are appended dynamically here -->
+                </div>
+              </div>
+              <button type="button" class="btn" onclick="submitTemplateForm()">Save Template</button>
+            </form>
+            <div id="templateMessage"></div>
+          </div>
+
+          <!-- Right side: Existing templates overview feed -->
+          <div class="card">
+            <div class="header-actions">
+              <h3 class="card-title" style="margin:0;">Active Outreach Templates</h3>
+              <button type="button" class="btn-refresh" onclick="loadTemplatesData()">Refresh List</button>
+            </div>
+            <div id="templateList">Reading template structures...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: DYNAMIC SYSTEM CONFIGURATIONS -->
+      <div id="settings-tab" class="tab-content">
+        <div class="card" style="max-width: 550px; margin: 0 auto;">
+          <h3 class="card-title">System Settings</h3>
+          <form id="dynamicSettingsForm">
+            <div id="settingsFieldsContainer">Loading settings options from sheet...</div>
+            <button type="button" class="btn" style="margin-top: 12px;" onclick="saveDynamicSettings()">Save Configurations</button>
+          </form>
+          <div id="settingsMessage"></div>
+        </div>
+      </div>
+
+      <!-- TAB 4: ANALYTICS -->
+      <div id="dashboard-tab" class="tab-content">
+        <div class="header-actions" style="margin-bottom: 20px;">
+          <h3 class="card-title" style="margin:0;">Performance Tracking</h3>
+          <button type="button" class="btn-refresh" onclick="loadDashboardMetrics()">Update Stats</button>
+        </div>
+        
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Sent</div>
+            <div class="stat-num" style="color: var(--tag-sent-text);" id="statSent">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Pending Queue</div>
+            <div class="stat-num" style="color: var(--tag-pending-text);" id="statPending">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Failed</div>
+            <div class="stat-num" style="color: var(--tag-failed-text);" id="statFailed">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Leads</div>
+            <div class="stat-num" id="statTotal">0</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      // Keep track of active settings fields to display placeholder options
+      let systemSettingsKeys = [];
+
+      window.onload = function() {
+        loadRecruitsData();
+        loadDashboardMetrics();
+        loadSettingsFields();
+        loadTemplatesData();
+      };
+
+      function switchTab(evt, tabId) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        evt.currentTarget.classList.add('active');
+      }
+
+      function loadRecruitsData() {
+        document.getElementById('logList').innerHTML = '<div style="color: var(--text-muted); font-size: 14px;">Syncing rows...</div>';
+        google.script.run.withSuccessHandler(renderLogList).getRecentRecruiters();
+      }
+
+      function renderLogList(data) {
+        const listDiv = document.getElementById('logList');
+        if (!data || data.length === 0) { 
+          listDiv.innerHTML = '<div style="color: var(--text-muted); font-size: 14px;">No records found in spreadsheet queue.</div>'; 
+          return; 
+        }
+        listDiv.innerHTML = data.map(item => `
+          <div class="status-row">
+            <div class="recruiter-meta">
+              <strong>${item.company}</strong> — <span style="color: var(--text-muted); font-size:13px;">${item.position}</span>
+              <div>${item.email}</div>
+            </div>
+            <span class="status-tag ${item.status}">${item.status}</span>
+          </div>
+        `).join('');
+      }
+
+      function loadTemplatesData() {
+        google.script.run.withSuccessHandler(renderTemplates).getTemplatesFromSheet();
+      }
+
+      function renderTemplates(templates) {
+        const listDiv = document.getElementById('templateList');
+        if (!templates || templates.length === 0) {
+          listDiv.innerHTML = '<div style="color: var(--text-muted); font-size: 14px;">No templates defined in your Templates tab yet.</div>';
+          return;
+        }
+        listDiv.innerHTML = templates.map(t => `
+          <div class="template-block">
+            <div class="template-meta">
+              <span>Template Name: ${t.name}</span>
+              <span style="color: var(--primary); font-size: 12px;">Subject: ${t.subject}</span>
+            </div>
+            <div class="template-body">${t.body}</div>
+          </div>
+        `).join('');
+      }
+
+      function loadDashboardMetrics() {
+        google.script.run.withSuccessHandler(function(metrics) {
+          document.getElementById('statSent').innerText = metrics.sent || 0;
+          document.getElementById('statPending').innerText = metrics.pending || 0;
+          document.getElementById('statFailed').innerText = metrics.failed || 0;
+          document.getElementById('statTotal').innerText = metrics.total || 0;
+        }).fetchDashboardMetrics();
+      }
+
+      function loadSettingsFields() {
+        google.script.run.withSuccessHandler(renderSettingsFields).fetchUserSettings();
+      }
+
+      // function renderSettingsFields(settingsArray) {
+      //   const container = document.getElementById('settingsFieldsContainer');
+      //   if (!settingsArray || settingsArray.length === 0) {
+      //     container.innerHTML = '<div style="color: var(--text-muted); font-size: 14px;">No configuration parameters found in Settings sheet.</div>';
+      //     return;
+      //   }
+
+      //   // Clean up text spacing to parse out key tokens cleanly
+      //   systemSettingsKeys = settingsArray.map(s => s.key.replace(/\s+/g, ''));
+      //   updateTemplatePillsUI();
+
+      //   container.innerHTML = settingsArray.map(setting => {
+      //     if (setting.value.includes('\n') || setting.key.toLowerCase().includes('signature')) {
+      //       return `
+      //         <div class="form-group">
+      //           <label>${setting.key}</label>
+      //           <textarea class="dynamic-setting-input" data-key="${setting.key}" rows="4">${setting.value}</textarea>
+      //         </div>
+      //       `;
+      //     } else if (setting.value.toUpperCase() === 'TRUE' || setting.value.toUpperCase() === 'FALSE') {
+      //       const isTrue = setting.value.toUpperCase() === 'TRUE';
+      //       return `
+      //         <div class="form-group">
+      //           <label>${setting.key}</label>
+      //           <select class="dynamic-setting-input" data-key="${setting.key}">
+      //             <option value="TRUE" ${isTrue ? 'selected' : ''}>TRUE</option>
+      //             <option value="FALSE" ${!isTrue ? 'selected' : ''}>FALSE</option>
+      //           </select>
+      //         </div>
+      //       `;
+      //     } else {
+      //       return `
+      //         <div class="form-group">
+      //           <label>${setting.key}</label>
+      //           <input type="text" class="dynamic-setting-input" data-key="${setting.key}" value="${setting.value}">
+      //         </div>
+      //       `;
+      //     }
+      //   }).join('');
+      // }
+
+function renderSettingsFields(settingsArray) {
+  const container = document.getElementById('settingsFieldsContainer');
+  if (!settingsArray || settingsArray.length === 0) {
+    container.innerHTML = '<div style="color: var(--text-muted); font-size: 14px;">No configuration parameters found in Settings sheet.</div>';
+    return;
+  }
+
+  // Clean up text spacing to parse out key tokens cleanly
+  systemSettingsKeys = settingsArray.map(s => s.key.replace(/\s+/g, ''));
+  updateTemplatePillsUI();
+
+  container.innerHTML = settingsArray.map(setting => {
+    // 1. Dynamic Check: Render specific numeric inputs for Follow-up day intervals
+    if (setting.key.toLowerCase().includes('days') || setting.key.toLowerCase().includes('max')) {
+      return `
+        <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 12px;">
+          <label style="margin-bottom: 0; font-weight: 600; color: var(--text-main);">${setting.key}</label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="number" class="dynamic-setting-input" data-key="${setting.key}" value="${setting.value}" style="width: 80px; padding: 8px; text-align: center; border: 1px solid var(--border); border-radius: 6px;">
+            <span style="font-size: 13px; color: var(--text-muted); font-weight: 500;">
+              ${setting.key.toLowerCase().includes('max') ? 'Times' : 'Days Out'}
+            </span>
+          </div>
+        </div>
+      `;
+    } 
+    // 2. Render Textarea block for rich formatting or email signature variables
+    else if (setting.value.includes('\n') || setting.key.toLowerCase().includes('signature')) {
+      return `
+        <div class="form-group">
+          <label>${setting.key}</label>
+          <textarea class="dynamic-setting-input" data-key="${setting.key}" rows="4">${setting.value}</textarea>
+        </div>
+      `;
+    } 
+    // 3. Render Select dropdown logic for booleans
+    else if (setting.value.toUpperCase() === 'TRUE' || setting.value.toUpperCase() === 'FALSE') {
+      const isTrue = setting.value.toUpperCase() === 'TRUE';
+      return `
+        <div class="form-group">
+          <label>${setting.key}</label>
+          <select class="dynamic-setting-input" data-key="${setting.key}">
+            <option value="TRUE" ${isTrue ? 'selected' : ''}>TRUE</option>
+            <option value="FALSE" ${!isTrue ? 'selected' : ''}>FALSE</option>
+          </select>
+        </div>
+      `;
+    } 
+    // 4. Fallback default simple line text inputs
+    else {
+      return `
+        <div class="form-group">
+          <label>${setting.key}</label>
+          <input type="text" class="dynamic-setting-input" data-key="${setting.key}" value="${setting.value}">
+        </div>
+      `;
+    }
+  }).join('') + `
+    <!-- Onboarding System Guidelines Explanatory Card -->
+    <div style="margin-top: 24px; padding: 14px; background-color: #fffaf0; border: 1px solid #feebc8; border-radius: 8px; font-size: 13px; color: #744210; line-height: 1.5;">
+      <strong style="color: #dd6b20; display: block; margin-bottom: 4px;">💡 Automated Follow-Up Spacing Rules:</strong>
+      All intervals are calculated from the original <em>Sent Date</em> column marker. If a recruiter replies, change the <strong>Reply</strong> column to <code>YES</code> in the spreadsheet grid to automatically halt the pending outreach loop.
+    </div>
+  `;
+}
+      // Appends custom settings tags inside the "Available Placeholders" helper area
+      function updateTemplatePillsUI() {
+        const box = document.getElementById('templatePlaceholdersBox');
+        // Reset back to initial baseline fields
+        box.innerHTML = `
+          <span class="placeholder-pill">{{Recruiter}}</span>
+          <span class="placeholder-pill">{{Company}}</span>
+          <span class="placeholder-pill">{{Position}}</span>
+        `;
+        systemSettingsKeys.forEach(k => {
+          box.innerHTML += `<span class="placeholder-pill" style="background-color: #e0f2fe; color: #0369a1;">{{Settings.${k}}}</span>`;
+        });
+      }
+
+      // Saves new template payload into spreadsheet
+      function submitTemplateForm() {
+        const msg = document.getElementById('templateMessage');
+        msg.style.color = 'var(--text-main)';
+        msg.innerHTML = 'Saving new template structure...';
+
+        const templatePayload = {
+          name: document.getElementById('tempName').value,
+          subject: document.getElementById('tempSubject').value,
+          body: document.getElementById('tempBody').value
+        };
+
+        google.script.run.withSuccessHandler(function(response) {
+          msg.style.color = '#166534';
+          msg.innerHTML = '✓ Template saved completely!';
+          document.getElementById('templateForm').reset();
+          updateTemplatePillsUI(); // restore base pills view state
+          loadTemplatesData();
+        }).addNewTemplateRow(templatePayload);
+      }
+
+      function saveDynamicSettings() {
+        const msg = document.getElementById('settingsMessage');
+        msg.style.color = 'var(--text-main)';
+        msg.innerHTML = 'Updating backend sheets...';
+        
+        const payload = [];
+        document.querySelectorAll('.dynamic-setting-input').forEach(input => {
+          payload.push({
+            key: input.getAttribute('data-key'),
+            value: input.value
+          });
+        });
+        
+        google.script.run.withSuccessHandler(function(response) {
+          msg.style.color = '#166534';
+          msg.innerHTML = '✓ All configurations updated successfully!';
+          loadSettingsFields(); // Reload pills based on any new updates
+        }).saveUserSettings(payload);
+      }
+
+      function submitForm() {
+        const messageDiv = document.getElementById('message');
+        messageDiv.style.color = 'var(--text-main)';
+        messageDiv.innerHTML = 'Adding entry...';
+        
+        const formData = {
+          recruiter: document.getElementById('recruiter').value,
+          email: document.getElementById('email').value,
+          company: document.getElementById('company').value,
+          position: document.getElementById('position').value
+        };
+        
+        google.script.run.withSuccessHandler(function(response) {
+          messageDiv.style.color = '#166534'; 
+          messageDiv.innerHTML = '✓ Successfully queued!';
+          document.getElementById('recruiterForm').reset();
+          loadRecruitsData(); 
+          loadDashboardMetrics();
+        }).addNewRecruiter(formData);
+      }
+    </script>
+
+    <!-- UI Onboarding Documentation Section -->
+    <div class="system-onboarding-card">
+      <h3>🛠️ Recruiter Outreach System: How it Works</h3>
+      <p>If you are a new user onboarding to this workspace, here is how the core architecture tracks and syncs your automation flow:</p>
+      
+      <div class="steps-wrapper">
+        <div class="step-item">
+          <div class="step-number-box"><span class="step-number">1</span></div>
+          <div class="step-content">
+            <strong>Infrastructure Check:</strong> When the app initializes, <code>Setup.gs</code> automatically runs verification checks. If structural sheets like <em>Templates</em> or <em>Settings</em> are missing, they are seeded instantly.
+          </div>
+        </div>
+        
+        <div class="step-item">
+          <div class="step-number-box"><span class="step-number">2</span></div>
+          <div class="step-content">
+            <strong>Data Hydration Loop:</strong> The script pulls dynamic constraints from your spreadsheet vault (e.g., <code>Followup 1 Days</code> value) and injects them seamlessly into this dashboard.
+          </div>
+        </div>
+        
+        <div class="step-item">
+          <div class="step-number-box"><span class="step-number">3</span></div>
+          <div class="step-content">
+            <strong>Automation Execution:</strong> The core scheduler engine processes leads sequentially, strictly between Mon-Fri, 8 AM - 8 PM to safeguard your sender reputation.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      .system-onboarding-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 24px;
+        margin-top: 32px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      .system-onboarding-card h3 {
+        margin-top: 0;
+        color: #0f172a;
+        font-size: 16px;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 12px;
+      }
+      .steps-wrapper { display: flex; flex-direction: column; gap: 16px; margin-top: 15px; }
+      .step-item { display: table; width: 100%; }
+      .step-number-box { display: table-cell; vertical-align: top; width: 35px; }
+      .step-number {
+        background: #2563eb; color: white; font-weight: 700; border-radius: 50%;
+        width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px;
+      }
+      .step-content { display: table-cell; vertical-align: top; color: #4a5568; font-size: 13.5px; line-height: 1.5; }
+      .step-content code { background: #edf2f7; padding: 2px 5px; border-radius: 4px; font-family: monospace; color: #b91c1c; }
+    </style>
+  </body>
+</html>
