@@ -95,3 +95,9 @@ This is an automated recruiter outreach platform built on Google Apps Script and
 
 * **Note on API:** Remind them that if they use `MailApp` or `GmailApp`, the script will automatically ask for email-sending permissions during the first execution.
 * **Keep it private:** Remind them not to share their sheet URL publicly, as it contains sensitive recruiter contact information.
+<img width="389" height="452" alt="image" src="https://github.com/user-attachments/assets/07e3dbf4-7d4e-4c03-839f-b96af1522f5f" />
+<img width="1453" height="752" alt="image" src="https://github.com/user-attachments/assets/be03dcf4-1035-4f7f-867a-db77361cc4dc" />
+<img width="1465" height="750" alt="image" src="https://github.com/user-attachments/assets/a1d42d20-83ac-46b1-8a42-be349abffada" />
+<img width="1466" height="640" alt="image" src="https://github.com/user-attachments/assets/0df3dd21-649b-4b31-8e1d-418fbdfaa214" />
+
+
