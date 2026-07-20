@@ -33,13 +33,16 @@ const COL = {
 /**
  * Status Constants
  */
-const STATUS = {
+const STATUS = Object.freeze({
   PENDING: "PENDING",
   PROCESSING: "PROCESSING",
   SENT: "SENT",
   FAILED: "FAILED",
-  COMPLETED: "COMPLETED"
-};
+  NEW: "NEW",
+  COMPLETED: "COMPLETED",
+  DETAILS_REQUESTED: "DETAILS_REQUESTED",
+  FOLLOWUP_REQUIRED: "FOLLOWUP_REQUIRED"
+});
 
 /**
  * Returns Sheet

@@ -19,6 +19,8 @@
         --tag-pending-text: #854d0e;
         --tag-failed-bg: #fee2e2;
         --tag-failed-text: #991b1b;
+        --tag-details-bg: #f3e8ff;
+        --tag-details-text: #6b21a8;
       }
 
       body { 
@@ -200,15 +202,22 @@
       .recruiter-meta strong { font-size: 14px; font-weight: 600; }
       .recruiter-meta div { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
       
-      .status-tag { 
-        padding: 4px 10px; 
-        border-radius: 9999px; 
-        font-weight: 600; 
-        font-size: 11px; 
+      /* Status Dropdown Styling */
+      .status-select {
+        padding: 6px 10px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 12px;
+        cursor: pointer;
+        outline: none;
+        border: 1px solid var(--border);
       }
-      .SENT { background-color: var(--tag-sent-bg); color: var(--tag-sent-text); }
-      .PENDING { background-color: var(--tag-pending-bg); color: var(--tag-pending-text); }
-      .FAILED { background-color: var(--tag-failed-bg); color: var(--tag-failed-text); }
+      .status-select.NEW { background-color: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+      .status-select.SENT { background-color: var(--tag-sent-bg); color: var(--tag-sent-text); border-color: #bbf7d0; }
+      .status-select.PENDING { background-color: var(--tag-pending-bg); color: var(--tag-pending-text); border-color: #fef08a; }
+      .status-select.DETAILS_REQUESTED { background-color: var(--tag-details-bg); color: var(--tag-details-text); border-color: #e9d5ff; }
+      .status-select.FOLLOWUP_REQUIRED { background-color: #ffedd5; color: #c2410c; border-color: #fed7aa; }
+      .status-select.FAILED { background-color: var(--tag-failed-bg); color: var(--tag-failed-text); border-color: #fecaca; }
 
       .template-block {
         padding: 16px;
@@ -291,6 +300,28 @@
                 <label>Position</label>
                 <input type="text" id="position" required placeholder="Software Engineer">
               </div>
+              
+              <!-- Naya Dropdown 1: Status Selection -->
+              <div class="form-group">
+                <label>Initial Status</label>
+                <select id="status">
+                  <option value="PENDING" selected>PENDING</option>
+                  <option value="NEW">NEW</option>
+                  <option value="PROCESSING">PROCESSING</option>
+                  <option value="DETAILS_REQUESTED">DETAILS REQUESTED (Recruiter Asked Info)</option>
+                  <option value="FOLLOWUP_REQUIRED">FOLLOW-UP REQUIRED (Need to Follow-up)</option>
+                  <option value="SENT">SENT (Already Contacted Manually)</option>
+                </select>
+              </div>
+
+              <!-- Naya Dropdown 2: Template / Subject Override -->
+              <div class="form-group">
+                <label>Template / Subject Override</label>
+                <select id="subjectOverride">
+                  <option value="">Default / Standard Email</option>
+                </select>
+              </div>
+
               <button type="button" class="btn" onclick="submitForm()">Add to Queue</button>
             </form>
             <div id="message"></div>
@@ -332,7 +363,6 @@
                   <span class="placeholder-pill">{{Recruiter}}</span>
                   <span class="placeholder-pill">{{Company}}</span>
                   <span class="placeholder-pill">{{Position}}</span>
-                  <!-- Settings variables are appended dynamically here -->
                 </div>
               </div>
               <button type="button" class="btn" onclick="submitTemplateForm()">Save Template</button>
@@ -393,7 +423,6 @@
     </div>
 
     <script>
-      // Keep track of active settings fields to display placeholder options
       let systemSettingsKeys = [];
 
       window.onload = function() {
@@ -415,21 +444,58 @@
         google.script.run.withSuccessHandler(renderLogList).getRecentRecruiters();
       }
 
+      // Renders the list with Interactive Status Dropdowns
       function renderLogList(data) {
         const listDiv = document.getElementById('logList');
         if (!data || data.length === 0) { 
           listDiv.innerHTML = '<div style="color: var(--text-muted); font-size: 14px;">No records found in spreadsheet queue.</div>'; 
           return; 
         }
-        listDiv.innerHTML = data.map(item => `
-          <div class="status-row">
-            <div class="recruiter-meta">
-              <strong>${item.company}</strong> — <span style="color: var(--text-muted); font-size:13px;">${item.position}</span>
-              <div>${item.email}</div>
+        
+        listDiv.innerHTML = data.map(item => {
+          const currentStatus = item.status || 'NEW';
+          const targetRowIndex = item.rowIndex || item.id;
+          return `
+            <div class="status-row">
+              <div class="recruiter-meta">
+                <strong>${item.company}</strong> — <span style="color: var(--text-muted); font-size:13px;">${item.position}</span>
+                <div>${item.email} ${item.key ? '<code style="font-size:11px; background:#f1f5f9; padding:2px 4px; border-radius:4px; margin-left:6px;">' + item.key + '</code>' : ''}</div>
+              </div>
+              <div>
+                <select class="status-select ${currentStatus}" onchange="changeRecruiterStatus(${targetRowIndex}, this)">
+                  <option value="NEW" ${currentStatus === 'NEW' ? 'selected' : ''}>NEW</option>
+                  <option value="SENT" ${currentStatus === 'SENT' ? 'selected' : ''}>SENT</option>
+                  <option value="PENDING" ${currentStatus === 'PENDING' ? 'selected' : ''}>PENDING</option>
+                  <option value="DETAILS_REQUESTED" ${currentStatus === 'DETAILS_REQUESTED' ? 'selected' : ''}>DETAILS REQUESTED</option>
+                  <option value="FOLLOWUP_REQUIRED" ${currentStatus === 'FOLLOWUP_REQUIRED' ? 'selected' : ''}>FOLLOW-UP REQUIRED</option>
+                  <option value="FAILED" ${currentStatus === 'FAILED' ? 'selected' : ''}>FAILED</option>
+                </select>
+              </div>
             </div>
-            <span class="status-tag ${item.status}">${item.status}</span>
-          </div>
-        `).join('');
+          `;
+        }).join('');
+      }
+
+      // Updates status in Google Sheet via Apps Script
+      function changeRecruiterStatus(rowId, selectElem) {
+        const newStatus = selectElem.value;
+        
+        selectElem.disabled = true;
+        selectElem.style.opacity = '0.6';
+
+        google.script.run
+          .withSuccessHandler(function() {
+            selectElem.disabled = false;
+            selectElem.style.opacity = '1';
+            selectElem.className = 'status-select ' + newStatus;
+            loadDashboardMetrics(); // Refresh analytics stats
+          })
+          .withFailureHandler(function(err) {
+            selectElem.disabled = false;
+            selectElem.style.opacity = '1';
+            alert('Failed to update status: ' + err.message);
+          })
+          .updateRecruiterStatus(rowId, newStatus);
       }
 
       function loadTemplatesData() {
@@ -438,10 +504,24 @@
 
       function renderTemplates(templates) {
         const listDiv = document.getElementById('templateList');
+        const dropdownSelect = document.getElementById('subjectOverride');
+
+        // Populate Form's Template Dropdown dynamically
+        if (dropdownSelect) {
+          let optionsHTML = '<option value="">Default / Standard Email</option>';
+          if (templates && templates.length > 0) {
+            templates.forEach(t => {
+              optionsHTML += `<option value="${t.name}">${t.name} (${t.subject})</option>`;
+            });
+          }
+          dropdownSelect.innerHTML = optionsHTML;
+        }
+
         if (!templates || templates.length === 0) {
           listDiv.innerHTML = '<div style="color: var(--text-muted); font-size: 14px;">No templates defined in your Templates tab yet.</div>';
           return;
         }
+        
         listDiv.innerHTML = templates.map(t => `
           <div class="template-block">
             <div class="template-meta">
@@ -466,116 +546,68 @@
         google.script.run.withSuccessHandler(renderSettingsFields).fetchUserSettings();
       }
 
-      // function renderSettingsFields(settingsArray) {
-      //   const container = document.getElementById('settingsFieldsContainer');
-      //   if (!settingsArray || settingsArray.length === 0) {
-      //     container.innerHTML = '<div style="color: var(--text-muted); font-size: 14px;">No configuration parameters found in Settings sheet.</div>';
-      //     return;
-      //   }
+      function renderSettingsFields(settingsArray) {
+        const container = document.getElementById('settingsFieldsContainer');
+        if (!settingsArray || settingsArray.length === 0) {
+          container.innerHTML = '<div style="color: var(--text-muted); font-size: 14px;">No configuration parameters found in Settings sheet.</div>';
+          return;
+        }
 
-      //   // Clean up text spacing to parse out key tokens cleanly
-      //   systemSettingsKeys = settingsArray.map(s => s.key.replace(/\s+/g, ''));
-      //   updateTemplatePillsUI();
+        systemSettingsKeys = settingsArray.map(s => s.key.replace(/\s+/g, ''));
+        updateTemplatePillsUI();
 
-      //   container.innerHTML = settingsArray.map(setting => {
-      //     if (setting.value.includes('\n') || setting.key.toLowerCase().includes('signature')) {
-      //       return `
-      //         <div class="form-group">
-      //           <label>${setting.key}</label>
-      //           <textarea class="dynamic-setting-input" data-key="${setting.key}" rows="4">${setting.value}</textarea>
-      //         </div>
-      //       `;
-      //     } else if (setting.value.toUpperCase() === 'TRUE' || setting.value.toUpperCase() === 'FALSE') {
-      //       const isTrue = setting.value.toUpperCase() === 'TRUE';
-      //       return `
-      //         <div class="form-group">
-      //           <label>${setting.key}</label>
-      //           <select class="dynamic-setting-input" data-key="${setting.key}">
-      //             <option value="TRUE" ${isTrue ? 'selected' : ''}>TRUE</option>
-      //             <option value="FALSE" ${!isTrue ? 'selected' : ''}>FALSE</option>
-      //           </select>
-      //         </div>
-      //       `;
-      //     } else {
-      //       return `
-      //         <div class="form-group">
-      //           <label>${setting.key}</label>
-      //           <input type="text" class="dynamic-setting-input" data-key="${setting.key}" value="${setting.value}">
-      //         </div>
-      //       `;
-      //     }
-      //   }).join('');
-      // }
-
-function renderSettingsFields(settingsArray) {
-  const container = document.getElementById('settingsFieldsContainer');
-  if (!settingsArray || settingsArray.length === 0) {
-    container.innerHTML = '<div style="color: var(--text-muted); font-size: 14px;">No configuration parameters found in Settings sheet.</div>';
-    return;
-  }
-
-  // Clean up text spacing to parse out key tokens cleanly
-  systemSettingsKeys = settingsArray.map(s => s.key.replace(/\s+/g, ''));
-  updateTemplatePillsUI();
-
-  container.innerHTML = settingsArray.map(setting => {
-    // 1. Dynamic Check: Render specific numeric inputs for Follow-up day intervals
-    if (setting.key.toLowerCase().includes('days') || setting.key.toLowerCase().includes('max')) {
-      return `
-        <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 12px;">
-          <label style="margin-bottom: 0; font-weight: 600; color: var(--text-main);">${setting.key}</label>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="number" class="dynamic-setting-input" data-key="${setting.key}" value="${setting.value}" style="width: 80px; padding: 8px; text-align: center; border: 1px solid var(--border); border-radius: 6px;">
-            <span style="font-size: 13px; color: var(--text-muted); font-weight: 500;">
-              ${setting.key.toLowerCase().includes('max') ? 'Times' : 'Days Out'}
-            </span>
+        container.innerHTML = settingsArray.map(setting => {
+          if (setting.key.toLowerCase().includes('days') || setting.key.toLowerCase().includes('max')) {
+            return `
+              <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 12px;">
+                <label style="margin-bottom: 0; font-weight: 600; color: var(--text-main);">${setting.key}</label>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input type="number" class="dynamic-setting-input" data-key="${setting.key}" value="${setting.value}" style="width: 80px; padding: 8px; text-align: center; border: 1px solid var(--border); border-radius: 6px;">
+                  <span style="font-size: 13px; color: var(--text-muted); font-weight: 500;">
+                    ${setting.key.toLowerCase().includes('max') ? 'Times' : 'Days Out'}
+                  </span>
+                </div>
+              </div>
+            `;
+          } 
+          else if (setting.value.includes('\n') || setting.key.toLowerCase().includes('signature')) {
+            return `
+              <div class="form-group">
+                <label>${setting.key}</label>
+                <textarea class="dynamic-setting-input" data-key="${setting.key}" rows="4">${setting.value}</textarea>
+              </div>
+            `;
+          } 
+          else if (setting.value.toUpperCase() === 'TRUE' || setting.value.toUpperCase() === 'FALSE') {
+            const isTrue = setting.value.toUpperCase() === 'TRUE';
+            return `
+              <div class="form-group">
+                <label>${setting.key}</label>
+                <select class="dynamic-setting-input" data-key="${setting.key}">
+                  <option value="TRUE" ${isTrue ? 'selected' : ''}>TRUE</option>
+                  <option value="FALSE" ${!isTrue ? 'selected' : ''}>FALSE</option>
+                </select>
+              </div>
+            `;
+          } 
+          else {
+            return `
+              <div class="form-group">
+                <label>${setting.key}</label>
+                <input type="text" class="dynamic-setting-input" data-key="${setting.key}" value="${setting.value}">
+              </div>
+            `;
+          }
+        }).join('') + `
+          <div style="margin-top: 24px; padding: 14px; background-color: #fffaf0; border: 1px solid #feebc8; border-radius: 8px; font-size: 13px; color: #744210; line-height: 1.5;">
+            <strong style="color: #dd6b20; display: block; margin-bottom: 4px;">💡 Automated Follow-Up Spacing Rules:</strong>
+            All intervals are calculated from the original <em>Sent Date</em> column marker. If a recruiter replies, change the <strong>Reply</strong> column to <code>YES</code> in the spreadsheet grid to automatically halt the pending outreach loop.
           </div>
-        </div>
-      `;
-    } 
-    // 2. Render Textarea block for rich formatting or email signature variables
-    else if (setting.value.includes('\n') || setting.key.toLowerCase().includes('signature')) {
-      return `
-        <div class="form-group">
-          <label>${setting.key}</label>
-          <textarea class="dynamic-setting-input" data-key="${setting.key}" rows="4">${setting.value}</textarea>
-        </div>
-      `;
-    } 
-    // 3. Render Select dropdown logic for booleans
-    else if (setting.value.toUpperCase() === 'TRUE' || setting.value.toUpperCase() === 'FALSE') {
-      const isTrue = setting.value.toUpperCase() === 'TRUE';
-      return `
-        <div class="form-group">
-          <label>${setting.key}</label>
-          <select class="dynamic-setting-input" data-key="${setting.key}">
-            <option value="TRUE" ${isTrue ? 'selected' : ''}>TRUE</option>
-            <option value="FALSE" ${!isTrue ? 'selected' : ''}>FALSE</option>
-          </select>
-        </div>
-      `;
-    } 
-    // 4. Fallback default simple line text inputs
-    else {
-      return `
-        <div class="form-group">
-          <label>${setting.key}</label>
-          <input type="text" class="dynamic-setting-input" data-key="${setting.key}" value="${setting.value}">
-        </div>
-      `;
-    }
-  }).join('') + `
-    <!-- Onboarding System Guidelines Explanatory Card -->
-    <div style="margin-top: 24px; padding: 14px; background-color: #fffaf0; border: 1px solid #feebc8; border-radius: 8px; font-size: 13px; color: #744210; line-height: 1.5;">
-      <strong style="color: #dd6b20; display: block; margin-bottom: 4px;">💡 Automated Follow-Up Spacing Rules:</strong>
-      All intervals are calculated from the original <em>Sent Date</em> column marker. If a recruiter replies, change the <strong>Reply</strong> column to <code>YES</code> in the spreadsheet grid to automatically halt the pending outreach loop.
-    </div>
-  `;
-}
-      // Appends custom settings tags inside the "Available Placeholders" helper area
+        `;
+      }
+
       function updateTemplatePillsUI() {
         const box = document.getElementById('templatePlaceholdersBox');
-        // Reset back to initial baseline fields
         box.innerHTML = `
           <span class="placeholder-pill">{{Recruiter}}</span>
           <span class="placeholder-pill">{{Company}}</span>
@@ -586,7 +618,6 @@ function renderSettingsFields(settingsArray) {
         });
       }
 
-      // Saves new template payload into spreadsheet
       function submitTemplateForm() {
         const msg = document.getElementById('templateMessage');
         msg.style.color = 'var(--text-main)';
@@ -602,7 +633,7 @@ function renderSettingsFields(settingsArray) {
           msg.style.color = '#166534';
           msg.innerHTML = '✓ Template saved completely!';
           document.getElementById('templateForm').reset();
-          updateTemplatePillsUI(); // restore base pills view state
+          updateTemplatePillsUI();
           loadTemplatesData();
         }).addNewTemplateRow(templatePayload);
       }
@@ -623,10 +654,11 @@ function renderSettingsFields(settingsArray) {
         google.script.run.withSuccessHandler(function(response) {
           msg.style.color = '#166534';
           msg.innerHTML = '✓ All configurations updated successfully!';
-          loadSettingsFields(); // Reload pills based on any new updates
+          loadSettingsFields();
         }).saveUserSettings(payload);
       }
 
+      // Updated Submit Form Function (Captures Dropdown inputs)
       function submitForm() {
         const messageDiv = document.getElementById('message');
         messageDiv.style.color = 'var(--text-main)';
@@ -636,7 +668,9 @@ function renderSettingsFields(settingsArray) {
           recruiter: document.getElementById('recruiter').value,
           email: document.getElementById('email').value,
           company: document.getElementById('company').value,
-          position: document.getElementById('position').value
+          position: document.getElementById('position').value,
+          status: document.getElementById('status').value,                       // Dropdown 1 value
+          subjectOverride: document.getElementById('subjectOverride').value       // Dropdown 2 value
         };
         
         google.script.run.withSuccessHandler(function(response) {
